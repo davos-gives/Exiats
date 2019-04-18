@@ -25,6 +25,7 @@ defmodule Exiats.MixProject do
       {:earmark, "~> 1.3"},
       {:poison, "~> 4.0"},
       {:httpoison, "~> 1.5"},
+      {:uuid, "~> 1.1"},
     ]
   end
 end

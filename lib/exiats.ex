@@ -20,7 +20,7 @@ defmodule Exiats do
   use Exiats.Adapter, required_conf: [:merchant_key, :processor_id]
 
   alias Exiats.Owner
-  alias Exiats.Ongoing
+  alias Exiats.OngoingDonation
   alias Exiats.OngoingChanges
 
   import IEx
@@ -206,14 +206,11 @@ defmodule Exiats do
     }
   """
 
-  def sale(amount, owner, %Ongoing{} = ongoing) do
+  def sale(amount, owner, %OngoingDonation{} = ongoing, creditCardCryptogram) do
     config = get_config()
 
     details = [
-      {"cardNumber", "4539394673694021"},
-      {"cardExpMonth", "06"},
-      {"cardExpYear", "21"},
-      {"cVV", "123"},
+      {"creditCardCryptogram", creditCardCryptogram},
       {"transactionAmount", amount},
       {"autoGenerateOrderId", true},
       {"orderIdIsUnique", true},
@@ -223,14 +220,11 @@ defmodule Exiats do
     commit(:post, "Transaction/Sale", params, config)
   end
 
-  def sale(amount, owner) do
+  def sale(amount, owner, creditCardCryptogram) do
     config = get_config()
 
     details = [
-      {"cardNumber", "4539394673694021"},
-      {"cardExpMonth", "06"},
-      {"cardExpYear", "21"},
-      {"cVV", "123"},
+      {"creditCardCryptogram", creditCardCryptogram},
       {"transactionAmount", amount},
       {"autoGenerateOrderId", true},
       {"orderIdIsUnique", true},
@@ -240,12 +234,28 @@ defmodule Exiats do
     commit(:post, "Transaction/Sale", params, config)
   end
 
-  def vault_sale(vault_key, amount, owner) do
+  def vault_sale(vault_key, vault_id, %OngoingDonation{} = ongoing, amount, owner) do
     config = get_config()
 
     details = [
       {"transactionAmount", amount},
       {"vaultKey", vault_key},
+      {"vaultId", vault_id},
+      {"autoGenerateOrderId", true},
+      {"orderIdIsUnique", true}
+    ]
+
+    params = details ++ owner_params(owner)
+    commit(:post, "Transaction/SaleUsingVault", params, config)
+  end
+
+  def vault_sale(vault_key, vault_id, amount, owner) do
+    config = get_config()
+
+    details = [
+      {"transactionAmount", amount},
+      {"vaultKey", vault_key},
+      {"vaultId", vault_id},
       {"autoGenerateOrderId", true},
       {"orderIdIsUnique", true}
     ]
@@ -263,17 +273,28 @@ defmodule Exiats do
 
     params = details ++ ongoing_changes_params(changes)
     commit(:post, "Transaction/RecurringModify", params, config)
+
   end
 
-  def add_credit_card() do
+  def create_vault_for_donor() do
+    config = get_config()
+    uuid = UUID.uuid4(:hex)
+
+    params =
+      [
+        {"vaultKey", uuid }
+      ]
+    commit(:post, "Transaction/VaultCreateContainer", params, config)
+
+    %{"data" => %{"vaultKey" => uuid}}
+  end
+
+  def add_card_to_vault(vaultKey, creditCardCryptogram) do
     config = get_config()
 
     card = [
-      {"vaultKey", "123456789a!"},
-      {"cardNumber", "4539394673694021"},
-      {"cardExpMonth", "06"},
-      {"cardExpYear", "21"},
-      {"cardType", "Visa"}
+      {"vaultKey", vaultKey},
+      {"creditCardCryptogram", creditCardCryptogram}
     ]
 
     commit(:post, "Transaction/VaultCreateCCRecord", card, config)
@@ -319,7 +340,7 @@ defmodule Exiats do
 
   defp owner_params(_), do: []
 
-  defp ongoing_params(%Ongoing{} = ongoing) do
+  defp ongoing_params(%OngoingDonation{} = ongoing) do
     [
       {"recurring", ongoing.frequency},
       {"recurringStartDate", "#{ongoing.start_month}/" <> "#{ongoing.start_date}/" <> "#{ongoing.start_year}"},
