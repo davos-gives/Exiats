@@ -264,14 +264,27 @@ defmodule Exiats do
     commit(:post, "Transaction/SaleUsingVault", params, config)
   end
 
+  def get_vault_card(vault_key, vault_id) do
+    config = get_config()
+
+    details = [
+      {"vaultKey", vault_key}
+    ]
+
+    id = String.to_integer(vault_id)
+    results = commit(:post, "Transaction/VaultQueryCCRecord", details, config)
+    result = Enum.filter(results["data"]["creditCardRecords"], &match?(%{"id" => ^id}, &1))
+    first = List.first(result)
+  end
+
   def recurring_modify(reference_number, changes) do
     config = get_config()
 
     details = [
       {"referenceNumber", reference_number}
     ]
+    params = details ++ ongoing_changes_params()
 
-    params = details ++ ongoing_changes_params(changes)
     commit(:post, "Transaction/RecurringModify", params, config)
 
   end
@@ -348,12 +361,31 @@ defmodule Exiats do
     ]
   end
 
-  defp ongoing_changes_params(%OngoingChanges{} = ongoing) do
+  defp ongoing_changes_params() do
     [
-      {"recurringType", ongoing.frequency},
-      {"recurringAmount", ongoing.amount}
+      {"recurringAmount", "1.23"},
+      {"recurring", "1"},
+      {"recurringType", "monthly"},
+      {"recurringEndDate", "01/02/2028"},
+      {"recurringAmount", "20.00"},
+      {"ownerZip","01001"},
+      {"ownerEmail","test@test.com"},
+      {"ownerPhone", "5555555555"},
     ]
   end
+
+  # defp ongoing_changes_params(%OngoingChanges{} = ongoing) do
+  #   [
+  #     {"recurringAmount", "1.23"},
+  #     {"recurring", "1"},
+  #     {"recurringType", "monthly"},
+  #     {"recurringEndDate", "01/02/2028"},
+  #     {"recurringAmount", "20.00"},
+  #     {"ownerZip","01001"},
+  #     {"ownerEmail","test@test.com"},
+  #     {"ownerPhone", "5555555555"},
+  #   ]
+  # end
 
   defp ongoing_params(_), do: []
 end
