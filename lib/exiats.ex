@@ -26,7 +26,7 @@ defmodule Exiats do
   import IEx
 
   @doc """
-
+pry
   Performs a pre-authorization operation.
 
   The authorization validates the card details with the banks, places a hold on the transaction amount in the bank and triggers any risk management that IATS is running. If these aren't resolved within a certain amount of time they expire (presumably? figure out the timing on this.)
@@ -245,13 +245,12 @@ defmodule Exiats do
       {"orderIdIsUnique", true}
     ]
 
-    params = details ++ owner_params(owner)
+    params = details ++ owner_params(owner) ++ ongoing_params(ongoing)
     commit(:post, "Transaction/SaleUsingVault", params, config)
   end
 
   def vault_sale(vault_key, vault_id, amount, owner) do
     config = get_config()
-
     details = [
       {"transactionAmount", amount},
       {"vaultKey", vault_key},
@@ -283,10 +282,8 @@ defmodule Exiats do
     details = [
       {"referenceNumber", reference_number}
     ]
-    params = details ++ ongoing_changes_params()
-
-    commit(:post, "Transaction/RecurringModify", params, config)
-
+    params = details ++ ongoing_changes_params(changes)
+    result = commit(:post, "Transaction/RecurringModify", params, config)
   end
 
   def create_vault_for_donor() do
@@ -311,6 +308,30 @@ defmodule Exiats do
     ]
 
     commit(:post, "Transaction/VaultCreateCCRecord", card, config)
+  end
+
+  def update_card_in_vault(vaultKey, cardKey, month, year) do
+    config = get_config()
+
+    card = [
+      {"vaultKey", vaultKey},
+      {"id", cardKey},
+      {"cardExpMonth", month},
+      {"cardExpYear", year}
+    ]
+
+    commit(:post, "Transaction/VaultUpdateCCRecord", card, config)
+  end
+
+  def remove_card_from_vault(vaultKey, cardKey) do
+    config = get_config()
+
+    card = [
+      {"vaultKey", vaultKey},
+      {"id", cardKey},
+    ]
+
+    commit(:post, "Transaction/VaultDeleteCCRecord", card, config)
   end
 
   defp commit(method, path, params, options) do
@@ -356,36 +377,16 @@ defmodule Exiats do
   defp ongoing_params(%OngoingDonation{} = ongoing) do
     [
       {"recurring", ongoing.frequency},
-      {"recurringStartDate", "#{ongoing.start_month}/" <> "#{ongoing.start_date}/" <> "#{ongoing.start_year}"},
-      {"recurringEndDate", "01/01/2099"}
     ]
   end
 
-  defp ongoing_changes_params() do
+  defp ongoing_changes_params(%OngoingChanges{} = ongoing) do
     [
-      {"recurringAmount", "1.23"},
-      {"recurring", "1"},
-      {"recurringType", "monthly"},
-      {"recurringEndDate", "01/02/2028"},
-      {"recurringAmount", "20.00"},
-      {"ownerZip","01001"},
-      {"ownerEmail","test@test.com"},
-      {"ownerPhone", "5555555555"},
+      {"recurringAmount", ongoing.amount},
+      {"recurring", ongoing.status},
+      {"recurringType", ongoing.frequency},
     ]
   end
-
-  # defp ongoing_changes_params(%OngoingChanges{} = ongoing) do
-  #   [
-  #     {"recurringAmount", "1.23"},
-  #     {"recurring", "1"},
-  #     {"recurringType", "monthly"},
-  #     {"recurringEndDate", "01/02/2028"},
-  #     {"recurringAmount", "20.00"},
-  #     {"ownerZip","01001"},
-  #     {"ownerEmail","test@test.com"},
-  #     {"ownerPhone", "5555555555"},
-  #   ]
-  # end
 
   defp ongoing_params(_), do: []
 end
