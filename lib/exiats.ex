@@ -224,7 +224,7 @@ pry
     config = get_config()
 
     details = [
-      {"creditCardCryptogram", creditCardCryptogram},
+      {"creditExCardCryptogram", creditCardCryptogram},
       {"transactionAmount", amount},
       {"autoGenerateOrderId", true},
       {"orderIdIsUnique", true},
@@ -232,6 +232,41 @@ pry
 
     params = details ++ owner_params(owner)
     commit(:post, "Transaction/Sale", params, config)
+  end
+
+  def credit(amount, referenceNumber) do
+    config = get_config()
+
+    details = [
+      {"refNumber", referenceNumber},
+      {"transactionAmount", amount}
+    ]
+
+    commit(:post, "Transaction/Credit", details, config)
+  end
+
+  def void(referenceNumber) do
+    config = get_config()
+
+    details = [
+      {"refNumber", referenceNumber},
+    ]
+
+    commit(:post, "Transaction/Void", details, config)
+  end
+
+
+  def query() do
+    config = get_config()
+
+    detail = [
+      {"queryTransType", "All"},
+      {"queryTransStatus", "All"}
+    ]
+
+    details = detail
+
+    commit(:post, "Transaction/Query", details, config)
   end
 
   def vault_sale(vault_key, vault_id, %OngoingDonation{} = ongoing, amount, owner) do
@@ -297,6 +332,21 @@ pry
     commit(:post, "Transaction/VaultCreateContainer", params, config)
 
     %{"data" => %{"vaultKey" => uuid}}
+  end
+
+  def update_vault(params) do
+    config = get_config()
+    result = commit(:post, "Transaction/VaultUpdateContainer", params, config)
+  end
+
+  def delete_vault(vaultKey) do
+    config = get_config()
+
+    params = [
+      {"vaultKey", vaultKey}
+    ]
+
+    commit(:post, "Transaction/VaultDeleteContainerAndAllAsscData", params, config)
   end
 
   def add_card_to_vault(vaultKey, creditCardCryptogram) do
@@ -385,6 +435,7 @@ pry
       {"recurringAmount", ongoing.amount},
       {"recurring", ongoing.status},
       {"recurringType", ongoing.frequency},
+      {"recurringEndDate", "#{ongoing.end_date}/#{ongoing.end_month}/#{ongoing.end_year}"}
     ]
   end
 
